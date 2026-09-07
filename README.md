@@ -35,7 +35,7 @@ research-workspace 子模块共享的静态可维护性指标扫描算法。
 ```toml
 [project.optional-dependencies]
 dev = [
-    "research-code-quality = { git = \"https://github.com/runchengxie/research-code-quality.git\" }",
+    "research-code-quality = { git = \"https://github.com/runchengxie/quant-code-quality.git\" }",
 ]
 ```
 
