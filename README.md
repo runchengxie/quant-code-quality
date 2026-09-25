@@ -1,13 +1,13 @@
 # research-code-quality
 
-research-workspace 子模块共享的静态可维护性指标扫描算法。
+多个量化仓库共享的静态可维护性指标扫描库。
 
 ## 背景
 
 `alpha-research`、`portfolio-backtester`、`strategy-pipeline`、`quant-execution-engine`
-四个子模块原本各自持有一份几乎相同的 `scripts/dev/maintainability_metrics.py`
+这些代码域原本各自持有一份几乎相同的 `scripts/dev/maintainability_metrics.py`
 （发现 Python 文件、用 `ast` 统计函数长度、读取 `pyproject.toml` 的
-`per-file-ignores` 计数 C901 豁免等）。本仓抽取其中**稳定且跨仓一致**的部分，
+`per-file-ignores` 计数 C901 豁免等）。本仓抽取其中稳定且跨仓一致的部分，
 避免同一算法在多处漂移。
 
 ## 设计边界
@@ -19,18 +19,18 @@ research-workspace 子模块共享的静态可维护性指标扫描算法。
 - 读取 `pyproject.toml` 统计 C901 按文件忽略数量（`_c901_file_ignore_count`）
 - 汇总为 `ScanResult`（`scan_repository`）
 
-各子模块的专属部分**仍保留在本地**：
+各消费仓库或代码域的专属部分仍保留在各自项目中：
 
-- `Metrics` dataclass（字段因仓而异，例如 strategy-pipeline 多 `src/script/test_files_over_750`）
+- `Metrics` dataclass（字段因仓库而异，例如 strategy-pipeline 多 `src/script/test_files_over_750`）
 - ratchet 预算（`DEFAULT_RATCHET_BUDGETS`，是治理值，必须本地冻结）
-- `command_run_functions_over_150` 等子仓专属指标的路径前缀
+- `command_run_functions_over_150` 等仓库专属指标的路径前缀
 - `to_payload` 里的 `thresholds` 细节
 
 这样既能消除真重复，又不会用 `__getattr__` 之类的魔法去强行统一差异字段。
 
 ## 消费方式
 
-子模块在 `pyproject.toml` 中把本仓作为 git 依赖加入 dev 组：
+消费仓库可在 `pyproject.toml` 中把本仓作为 Git 依赖加入开发依赖：
 
 ```toml
 [project.optional-dependencies]
@@ -56,5 +56,5 @@ uv run --group dev python -m research_code_quality.scanner \
   --scope research_code_quality --scope tests --json
 ```
 
-scanner 默认扫描 `src`、`scripts`、`tests`，以兼容使用本仓库算法的研究子模块。
+scanner 默认扫描 `src`、`scripts`、`tests`，以兼容使用本仓库算法的研究与平台仓库。
 本仓库自身采用根目录包布局，因此校验命令显式指定 `research_code_quality` 和 `tests`。
