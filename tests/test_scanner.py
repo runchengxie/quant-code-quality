@@ -1,4 +1,5 @@
 import json
+import subprocess
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -14,6 +15,39 @@ from research_code_quality.scanner import (
 
 
 class ScannerScopeTests(unittest.TestCase):
+    def test_nested_git_scopes_include_source_and_preserve_directory_boundaries(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            files = {
+                "src/runtime/worker.py": "def large():\n" + "    pass\n" * 101,
+                "src/runtime/new.py": "pass\n",
+                "src/runtime_extra/other.py": "pass\n",
+                "src/other/other.py": "pass\n",
+                "scripts/dev/audit.py": "pass\n",
+                "tests/test_worker.py": "pass\n",
+                "src/runtime/ignored.py": "pass\n",
+            }
+            for name, content in files.items():
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content, encoding="utf-8")
+            (root / ".gitignore").write_text("ignored.py\n", encoding="utf-8")
+            subprocess.run(
+                ["git", "-C", str(root), "add", "src/runtime/worker.py"], check=True
+            )
+            expected = sorted(root / name for name in (
+                "src/runtime/worker.py", "src/runtime/new.py",
+                "scripts/dev/audit.py", "tests/test_worker.py",
+            ))
+            for package_root in ("src/runtime", "./src/runtime/"):
+                with self.subTest(package_root=package_root):
+                    scopes = (package_root, "scripts/dev", "tests")
+                    self.assertEqual(discover_python_files(root, scopes), expected)
+                    result = scan_repository(root, scopes)
+                    self.assertEqual(result.functions_over_100, 1)
+                    self.assertEqual(result.largest_functions[0].name, "large")
+
     def test_explicit_scopes_accept_multiple_repository_directories(self):
         args = parse_args(["--scope", "research_code_quality", "--scope", "tests"])
 
