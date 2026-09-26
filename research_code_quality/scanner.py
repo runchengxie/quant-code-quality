@@ -187,7 +187,7 @@ def _is_included_python_path(path: Path, roots: Sequence[str]) -> bool:
         path.suffix == ".py"
         and "__pycache__" not in path.parts
         and bool(path.parts)
-        and path.parts[0] in roots
+        and any(path.is_relative_to(root) for root in roots)
     )
 
 

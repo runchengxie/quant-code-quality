@@ -48,6 +48,12 @@ result = scan_repository(repo_root, roots, limit)
 # 再补上本仓专属指标，组装出与原来一致的 Metrics 对象
 ```
 
+`roots` 支持多层目录，例如 `("src/ticknet", "scripts/dev", "tests")`。
+Git 扫描按完整目录边界匹配，包含已跟踪文件和未被忽略的未跟踪文件；
+`src/ticknet_extra` 不属于 `src/ticknet` 范围。
+旧版 Git 扫描仅匹配路径第一层，可能漏掉多层目录。升级后应核对新增纳入的
+文件及原有基线；指标上升可能来自修正漏扫，不能自动重写基线视为通过。
+
 ## 校验
 
 ```bash
