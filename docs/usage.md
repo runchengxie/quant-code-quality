@@ -59,8 +59,8 @@ Git 扫描按完整目录边界匹配，包含已跟踪文件和未被忽略的�
 ```bash
 uv run --group dev ruff check .
 uv run --group dev python -m research_code_quality.scanner \
-  --scope research_code_quality --scope tests --json
+  --scope src/research_code_quality --scope tests --json
 ```
 
 scanner 默认扫描 `src`、`scripts`、`tests`，以兼容使用本仓库算法的研究与平台仓库。
-本仓库自身采用根目录包布局，因此校验命令显式指定 `research_code_quality` 和 `tests`。
+本仓库自身把包放在 `src/research_code_quality`，校验命令显式指定该目录和 `tests`。

@@ -34,7 +34,7 @@
 
 ```bash
 uv run --locked --extra dev ruff check .
-python -m unittest discover -s tests -v
+uv run --locked --extra dev python -m unittest discover -s tests -v
 uv run --locked --extra dev python -m research_code_quality.scanner \
-  --scope research_code_quality --scope tests --json
+  --scope src/research_code_quality --scope tests --json
 ```

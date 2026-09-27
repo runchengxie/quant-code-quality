@@ -49,27 +49,27 @@ class ScannerScopeTests(unittest.TestCase):
                     self.assertEqual(result.largest_functions[0].name, "large")
 
     def test_explicit_scopes_accept_multiple_repository_directories(self):
-        args = parse_args(["--scope", "research_code_quality", "--scope", "tests"])
+        args = parse_args(["--scope", "src/research_code_quality", "--scope", "tests"])
 
-        self.assertEqual(args.scope, ["research_code_quality", "tests"])
+        self.assertEqual(args.scope, ["src/research_code_quality", "tests"])
 
     def test_explicit_package_scope_discovers_this_repository_code(self):
         repo_root = Path(__file__).resolve().parents[1]
 
         files = discover_python_files(
             repo_root,
-            roots=("research_code_quality",),
+            roots=("src/research_code_quality",),
             use_git=True,
         )
 
-        self.assertIn(repo_root / "research_code_quality/scanner.py", files)
+        self.assertIn(repo_root / "src/research_code_quality/scanner.py", files)
 
     def test_default_scopes_remain_compatible_with_downstream_repositories(self):
         self.assertEqual(DEFAULT_ROOTS, ("src", "scripts", "tests"))
 
     def test_ratchet_detects_only_increases_in_shared_metrics(self):
         repo_root = Path(__file__).resolve().parents[1]
-        result = scan_repository(repo_root, roots=("research_code_quality",), use_git=True)
+        result = scan_repository(repo_root, roots=("src/research_code_quality",), use_git=True)
 
         self.assertEqual(
             ratchet_violations(result, {"metrics": {"python_files": result.python_files}}), []
@@ -81,7 +81,7 @@ class ScannerScopeTests(unittest.TestCase):
 
     def test_baseline_writer_emits_compact_json(self):
         repo_root = Path(__file__).resolve().parents[1]
-        result = scan_repository(repo_root, roots=("research_code_quality",), use_git=True)
+        result = scan_repository(repo_root, roots=("src/research_code_quality",), use_git=True)
 
         with TemporaryDirectory() as directory:
             path = Path(directory) / "baseline.json"
