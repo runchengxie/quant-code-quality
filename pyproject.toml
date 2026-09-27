@@ -21,10 +21,10 @@ dev = [
 ]
 
 [tool.setuptools]
-package-dir = {"" = "."}
+package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 include = ["research_code_quality", "research_code_quality.*"]
 
 [tool.ruff]

@@ -10,7 +10,7 @@
 
 ```bash
 uv sync --locked --extra dev
-uv run --locked research-code-quality --scope research_code_quality --scope tests --json
+uv run --locked research-code-quality --scope src/research_code_quality --scope tests --json
 ```
 
 ## 文档
