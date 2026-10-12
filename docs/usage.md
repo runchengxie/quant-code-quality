@@ -1,72 +1,54 @@
-# quant-code-quality 使用与集成说明
+# Usage and integration
 
-多个量化仓库共享的静态可维护性指标扫描库。
+[中文页面](zh-CN/usage.md)
 
-## 背景
+`research-code-quality` provides common static scanning for research repositories. It extracts algorithms previously duplicated in `alpha-research`, `portfolio-backtester`, `strategy-pipeline`, and `quant-execution-engine`.
 
-`alpha-research`、`portfolio-backtester`、`strategy-pipeline`、`quant-execution-engine`
-这些代码域原本各自持有一份几乎相同的 `scripts/dev/maintainability_metrics.py`
-（发现 Python 文件、用 `ast` 统计函数长度、读取 `pyproject.toml` 的
-`per-file-ignores` 计数 C901 豁免等）。本仓抽取其中稳定且跨仓一致的部分，
-避免同一算法在多处漂移。
+## Ownership and API
 
-## 设计边界
+The package discovers Python files with `discover_python_files`, measures file and function lengths with `scan_repository`, counts Ruff C901 per-file ignores, and returns a `ScanResult`. `to_payload()` includes metric thresholds and per-file/function records.
 
-本仓只拥有跨仓一致的部分：
-
-- 发现仓库内的 Python 文件（`discover_python_files`）
-- 用 `ast` 统计每个函数的起止行与长度（`_function_metrics_for_file`）
-- 读取 `pyproject.toml` 统计 C901 按文件忽略数量（`_c901_file_ignore_count`）
-- 汇总为 `ScanResult`（`scan_repository`）
-
-各消费仓库或代码域的专属部分仍保留在各自项目中：
-
-- `Metrics` dataclass（字段因仓库而异，例如 strategy-pipeline 多 `src/script/test_files_over_750`）
-- ratchet 预算（`DEFAULT_RATCHET_BUDGETS`，是治理值，必须本地冻结）
-- `command_run_functions_over_150` 等仓库专属指标的路径前缀
-- `to_payload` 里的 `thresholds` 细节
-
-这样既能消除真重复，又不会用 `__getattr__` 之类的魔法去强行统一差异字段。
-
-## 消费方式
-
-消费仓库可在 `pyproject.toml` 中把本仓作为 Git 依赖加入开发依赖：
-
-```toml
-[project.optional-dependencies]
-dev = [
-    "research-code-quality = { git = \"https://github.com/runchengxie/quant-code-quality.git\" }",
-]
-```
-
-本地包装器只需：
+Consumers retain their own `Metrics` dataclasses, additional indicators, scan scopes, ratchet budgets, and output formatting. The scanner does not enforce a common budget across projects.
 
 ```python
 from research_code_quality.scanner import scan_repository
 
 result = scan_repository(repo_root, roots, limit)
-# 再补上本仓专属指标，组装出与原来一致的 Metrics 对象
 ```
 
-`roots` 支持多层目录，例如 `("src/ticknet", "scripts/dev", "tests")`。
-Git 扫描按完整目录边界匹配，包含已跟踪文件和未被忽略的未跟踪文件，
-`src/ticknet_extra` 不属于 `src/ticknet` 范围。
-旧版 Git 扫描仅匹配路径第一层，可能漏掉多层目录。升级后应核对新增纳入的
-文件及原有基线。指标上升可能来自修正漏扫，不能自动重写基线视为通过。
+`repo_root` is a `Path`, `roots` is a sequence of directory names, and `limit` defaults to `10`. Nested scopes such as `("src/ticknet", "scripts/dev", "tests")` work. Git discovery includes tracked and non-ignored untracked files, and matches directory boundaries: `src/ticknet_extra` is outside `src/ticknet`. Older versions only matched the first path component. Review newly scanned files before changing a baseline.
 
-## 消费方与升级约定
+## Install in a consumer
 
-当前工作区中，`quant-market-data-platform`、`quant-platform` 和 `quant-research` 将本仓作为开发依赖使用。各消费仓库在自己的 `pyproject.toml` 和锁文件中固定版本，版本不会自动同步；升级时应先检查该仓的实际锁定提交，再逐仓更新并运行本地扫描与质量门禁。
+Use a valid PEP 508 direct reference in an optional dependency list, pinned to a reviewed commit:
 
-本仓只负责扫描算法及其稳定接口。每个消费仓库继续拥有自己的指标字段、目录范围、ratchet 预算和基线。扫描器修正目录发现逻辑后，新增纳入的文件必须先复核，再决定是否更新本地基线；不能因为依赖升级自动放宽质量预算。新增或移除消费者时，应同步更新本节和消费方的开发依赖。
+```toml
+[project.optional-dependencies]
+dev = [
+    "research-code-quality @ git+https://github.com/runchengxie/quant-code-quality.git@d0e86fc65be241b5e6c3996b99ef2864a6c85b94",
+]
+```
 
-## 校验
+The workspace dependency configurations identify `quant-market-data-platform`, `quant-platform`, `quant-research`, and `quant-deep-learning` (local directory `deep-learning-tick-data-prediction`) as consumers. The deep-learning project retains the historical `research-code-quality.git` URL in its dependency pin. Each pins its own version in project configuration and its lockfile. This example does not upgrade those consumers. Check their actual pins and run their local gates independently before upgrading. A discovery fix may increase metrics without adding code; do not automatically relax budgets.
+
+## CLI boundaries
+
+Pass `--root .` when running an installed scanner in a consumer. Automatic root discovery starts from the scanner module location and may select the package checkout instead of the caller's repository.
 
 ```bash
-uv run --group dev ruff check .
-uv run --group dev python -m research_code_quality.scanner \
-  --scope src/research_code_quality --scope tests --json
+uv run --locked --extra dev research-code-quality --root . --scope src --scope tests --json
 ```
 
-scanner 默认扫描 `src`、`scripts`、`tests`，以兼容使用本仓库算法的研究与平台仓库。
-本仓库自身把包放在 `src/research_code_quality`，校验命令显式指定该目录和 `tests`。
+`--scope` is repeatable and defaults to `src`, `scripts`, and `tests`. `--no-git` uses filesystem discovery without Git ignore rules. `--limit` defaults to `10` and only truncates the largest-file/function lists, not aggregate metrics. Invalid Python syntax still contributes file and line counts but produces no function metrics. This scanner does not replace lint or type checking.
+
+`--ratchet --baseline PATH` rejects increases only for recorded metrics; omitted metrics are not checked. It returns `1` for an increase, `2` for a missing or unreadable baseline, and `0` on success. `--write-baseline PATH` writes JSON with `schema_version: 1`. Callers must review and store it appropriately; writing a baseline does not approve a new budget.
+
+## Validation
+
+```bash
+uv run --locked --extra dev ruff check .
+uv run --locked --extra dev python -m unittest discover -s tests -v
+uv run --locked --extra dev python -m research_code_quality.scanner --root . --scope src/research_code_quality --scope tests --json
+```
+
+Runtime output is English or structured data; there is no locale option. CI uses Python 3.11; the package requires Python 3.10 or newer. There is no configured type checker, coverage threshold, or local dependency vulnerability gate. GitHub configures CodeQL and Dependabot; their presence does not establish a successful local security check.

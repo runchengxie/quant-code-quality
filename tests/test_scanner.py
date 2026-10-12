@@ -1,12 +1,15 @@
+import io
 import json
 import subprocess
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from research_code_quality.scanner import (
     DEFAULT_ROOTS,
     discover_python_files,
+    main,
     parse_args,
     ratchet_violations,
     scan_repository,
@@ -47,6 +50,29 @@ class ScannerScopeTests(unittest.TestCase):
                     result = scan_repository(root, scopes)
                     self.assertEqual(result.functions_over_100, 1)
                     self.assertEqual(result.largest_functions[0].name, "large")
+
+    def test_cli_explicit_root_and_ratchet_exit_contract(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "src").mkdir()
+            (root / "src/example.py").write_text("pass\n", encoding="utf-8")
+            baseline = root / "baseline.json"
+            output = io.StringIO()
+            arguments = ["--root", str(root), "--no-git", "--json"]
+            with redirect_stdout(output):
+                self.assertEqual(main([*arguments, "--write-baseline", str(baseline)]), 0)
+            payload = json.loads(output.getvalue())
+            self.assertEqual(payload["python_files"], 1)
+            self.assertEqual(payload["roots"], ["src", "scripts", "tests"])
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(main([*arguments, "--ratchet", "--baseline", str(baseline)]), 0)
+            (root / "src/new.py").write_text("pass\n", encoding="utf-8")
+            with redirect_stderr(io.StringIO()) as errors:
+                self.assertEqual(main([*arguments, "--ratchet", "--baseline", str(baseline)]), 1)
+            self.assertIn("python_files: 2 > baseline 1", errors.getvalue())
+            with redirect_stderr(io.StringIO()) as errors:
+                self.assertEqual(main([*arguments, "--ratchet"]), 2)
+            self.assertIn("--ratchet requires --baseline", errors.getvalue())
 
     def test_explicit_scopes_accept_multiple_repository_directories(self):
         args = parse_args(["--scope", "src/research_code_quality", "--scope", "tests"])
