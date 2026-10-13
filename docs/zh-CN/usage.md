@@ -66,8 +66,9 @@ Git 扫描按完整目录边界匹配，包含已跟踪文件和未被忽略的�
 
 ```bash
 uv run --locked --extra dev ruff check .
+uv run --locked --extra dev python -m unittest discover -s tests -v
 uv run --locked --extra dev python -m research_code_quality.scanner \
-  --scope src/research_code_quality --scope tests --json
+  --root . --scope src/research_code_quality --scope tests --json
 ```
 
 scanner 默认扫描 `src`、`scripts`、`tests`，以兼容使用本仓库算法的研究与平台仓库。

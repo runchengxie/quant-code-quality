@@ -40,5 +40,5 @@
 uv run --locked --extra dev ruff check .
 uv run --locked --extra dev python -m unittest discover -s tests -v
 uv run --locked --extra dev python -m research_code_quality.scanner \
-  --scope src/research_code_quality --scope tests --json
+  --root . --scope src/research_code_quality --scope tests --json
 ```
