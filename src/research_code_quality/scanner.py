@@ -106,10 +106,10 @@ def ratchet_violations(result: ScanResult, baseline: dict[str, object]) -> list[
     violations: list[str] = []
     current = ratchet_metrics(result)
     for name, value in current.items():
-        previous = metrics.get(name)
-        if previous is None:
+        if name not in metrics:
             continue
-        if not isinstance(previous, int):
+        previous = metrics[name]
+        if type(previous) is not int:
             raise ValueError(f"baseline metric {name!r} must be an integer")
         if value > previous:
             violations.append(f"{name}: {value} > baseline {previous}")
@@ -216,7 +216,7 @@ def discover_python_files(
         root = repo_root / root_name
         if root.exists():
             files.extend(p for p in root.rglob("*.py") if "__pycache__" not in p.parts)
-    return sorted(files)
+    return sorted(set(files))
 
 
 def _relative_path(repo_root: Path, path: Path) -> str:
@@ -374,8 +374,6 @@ def main(argv: list[str] | None = None) -> int:
     result = scan_repository(
         repo_root.resolve(), roots, max(args.limit, 0), use_git=not args.no_git
     )
-    if args.write_baseline:
-        write_baseline(args.write_baseline, result)
     if args.ratchet:
         if args.baseline is None:
             print("--ratchet requires --baseline", file=sys.stderr)
@@ -390,6 +388,8 @@ def main(argv: list[str] | None = None) -> int:
             for violation in violations:
                 print(f"- {violation}", file=sys.stderr)
             return 1
+    if args.write_baseline:
+        write_baseline(args.write_baseline, result)
     if args.json:
         json.dump(result.to_payload(), sys.stdout, indent=2, ensure_ascii=False)
         print()
