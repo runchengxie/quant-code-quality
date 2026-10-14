@@ -14,21 +14,11 @@
 
 ## 设计边界
 
-本仓只拥有跨仓一致的部分：
+本仓统一文件发现和通用静态指标，包括文件与函数长度、Ruff C901 按文件忽略项数量。
+扫描结果以 `ScanResult` 返回，`to_payload()` 包含阈值以及文件和函数级记录。
 
-- 发现仓库内的 Python 文件（`discover_python_files`）
-- 用 `ast` 统计每个函数的起止行与长度（`_function_metrics_for_file`）
-- 读取 `pyproject.toml` 统计 C901 按文件忽略数量（`_c901_file_ignore_count`）
-- 汇总为 `ScanResult`（`scan_repository`）
-
-各消费仓库或代码域的专属部分仍保留在各自项目中：
-
-- `Metrics` dataclass（字段因仓库而异，例如 strategy-pipeline 多 `src/script/test_files_over_750`）
-- ratchet 预算（`DEFAULT_RATCHET_BUDGETS`，是治理值，必须本地冻结）
-- `command_run_functions_over_150` 等仓库专属指标的路径前缀
-- `to_payload` 里的 `thresholds` 细节
-
-这样既能消除真重复，又不会用 `__getattr__` 之类的魔法去强行统一差异字段。
+各消费仓库仍保留自己的 `Metrics` dataclass、额外指标、扫描范围、ratchet 预算和输出格式。
+扫描器不会在不同项目间统一执行预算。
 
 ## 消费方式
 
