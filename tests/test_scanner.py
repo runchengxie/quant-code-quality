@@ -74,6 +74,81 @@ class ScannerScopeTests(unittest.TestCase):
                 self.assertEqual(main([*arguments, "--ratchet"]), 2)
             self.assertIn("--ratchet requires --baseline", errors.getvalue())
 
+    def test_failed_ratchet_preserves_baseline_and_candidate(self):
+        for same_path in (True, False):
+            with self.subTest(same_path=same_path), TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "src").mkdir()
+                (root / "src/example.py").write_text("pass\n", encoding="utf-8")
+                baseline = root / "baseline.json"
+                baseline.write_text('{"metrics": {"python_files": 0}}\n', encoding="utf-8")
+                candidate = baseline if same_path else root / "candidate.json"
+                if not same_path:
+                    candidate.write_text('{"sentinel": "preserve"}\n', encoding="utf-8")
+                original = {path: path.read_bytes() for path in (baseline, candidate)}
+                with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                    code = main([
+                        "--root", str(root), "--no-git", "--ratchet", "--baseline",
+                        str(baseline), "--write-baseline", str(candidate),
+                    ])
+                self.assertEqual(code, 1)
+                for path, content in original.items():
+                    self.assertEqual(path.read_bytes(), content)
+
+    def test_invalid_ratchet_does_not_create_candidate(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            candidate = root / "candidate.json"
+            for baseline_args in ([], ["--baseline", str(root / "missing.json")]):
+                with self.subTest(baseline_args=baseline_args):
+                    with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                        code = main([
+                            "--root", str(root), "--no-git", "--ratchet",
+                            *baseline_args, "--write-baseline", str(candidate),
+                        ])
+                    self.assertEqual(code, 2)
+                    self.assertFalse(candidate.exists())
+
+    def test_successful_ratchet_can_refresh_the_same_baseline(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "src").mkdir()
+            (root / "src/example.py").write_text("pass\n", encoding="utf-8")
+            baseline = root / "baseline.json"
+            baseline.write_text('{"metrics": {"python_files": 2}}\n', encoding="utf-8")
+            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                code = main([
+                    "--root", str(root), "--no-git", "--ratchet", "--baseline",
+                    str(baseline), "--write-baseline", str(baseline),
+                ])
+            self.assertEqual(code, 0)
+            self.assertEqual(json.loads(baseline.read_text())["metrics"]["python_files"], 1)
+
+    def test_present_baseline_metrics_require_json_integers(self):
+        result = scan_repository(Path(__file__).resolve().parents[1], use_git=False)
+        for value in (True, False, None, 1.0, "1"):
+            with (
+                self.subTest(value=value),
+                self.assertRaisesRegex(ValueError, "must be an integer"),
+            ):
+                ratchet_violations(result, {"metrics": {"python_files": value}})
+
+    def test_overlapping_filesystem_scopes_count_each_file_once(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            source = root / "src/runtime/example.py"
+            source.parent.mkdir(parents=True)
+            source.write_text("def example():\n    pass\n", encoding="utf-8")
+            scopes = ("src", "src/runtime", "src")
+            for use_git in (True, False):
+                with self.subTest(use_git=use_git):
+                    self.assertEqual(discover_python_files(root, scopes, use_git), [source])
+                    result = scan_repository(root, scopes, use_git=use_git)
+                    self.assertEqual(result.python_files, 1)
+                    self.assertEqual(result.python_lines, 2)
+                    self.assertEqual(len(result.functions), 1)
+
     def test_explicit_scopes_accept_multiple_repository_directories(self):
         args = parse_args(["--scope", "src/research_code_quality", "--scope", "tests"])
 
