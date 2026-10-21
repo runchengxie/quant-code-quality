@@ -60,3 +60,45 @@ uv run --locked --extra dev python -m research_code_quality.scanner --root . --s
 ```
 
 Runtime output is English or structured data; there is no locale option. CI uses Python 3.11; the package requires Python 3.10 or newer. There is no configured type checker, coverage threshold, or local dependency vulnerability gate. GitHub configures CodeQL and Dependabot; their presence does not establish a successful local security check.
+
+## Check environment drift
+
+The metadata checker is independent of the source scanner. Run it before any
+command that synchronizes an environment, so synchronization cannot hide drift:
+
+```bash
+python -m research_code_quality.environment --lock /path/to/project/uv.lock \
+  --python /path/to/project/.venv/bin/python
+# Installed console entry point: research-environment-check (same arguments).
+```
+
+The caller must have this package installed; the target interpreter needs only
+Python's standard library. No target packages are imported or installed. Output
+is JSON (`schema_version`, `source`, `checked`, `drift`); exit status is `0` when
+clean, `1` for drift, and `2` for unreadable or unsupported input. Findings include
+unexpected packages, duplicate distribution metadata, versions absent from the
+lock, and mismatching direct URLs or Git commits. Editable project paths resolve
+relative to the lockfile. Registry packages with a local/VCS replacement also fail.
+
+A uv lock may contain several Python/platform resolutions and unselected extras.
+By default every installed distribution must match one locked candidate; missing
+lock records are not reported. This is a lightweight provenance check, not a uv
+resolver: it does not prove marker, extra, or dependency-closure selection, verify
+wheel hashes or installed file contents, or audit vulnerabilities.
+
+For a reviewed single-environment freeze containing only `name==version` lines,
+use `--requirements /path/to/frozen.txt --require-all`. Blank lines and comments
+are accepted; markers, hashes, ranges, editable and direct references are rejected
+rather than silently skipped. This format proves versions only, so it rejects
+installed direct references. `--require-all` with a universal uv lock is generally
+inappropriate because optional and mutually exclusive records will appear missing.
+For fixture or offline metadata inspection, repeat `--site-packages DIRECTORY`
+instead of `--python`. The checker reads distribution metadata, including
+`direct_url.json`; it never reads credentials or package configuration.
+
+For an environment installed with `uv sync --no-editable`, pass `--no-editable`
+to expect local editable lock records at the same directory to be installed
+without editable metadata. Without that flag editable status is checked strictly.
+Target interpreter probes use isolated mode (`-I`) and a 30-second timeout.
+Empty frozen files are rejected because they provide no dependency evidence.
+Legacy source-tree egg-info is excluded; the checker requires installed METADATA.
