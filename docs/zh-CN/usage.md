@@ -85,3 +85,31 @@ uv run --locked --extra dev research-code-quality --root . --scope src --scope t
 基线中已提供的已知指标必须是 JSON 整数。布尔值、`null`、字符串和浮点值会使 CLI 返回 `2`。应改为经过审核的整数预算；若某指标有意不参与对比，可省略该项。基线的 `roots` 和 `schema_version` 仅作为元数据，不校验范围，消费方须自行保持扫描范围一致。上文 Git 固定版本示例是历史版本，不会自动让消费方获得这些修复。
 
 运行输出为英文或结构化数据，当前没有 locale 选项。CI 使用 Python 3.11，包要求 Python 3.10 或更新版本。仓库未配置类型检查、覆盖率阈值或本地依赖漏洞扫描门禁。GitHub 配置了 CodeQL 和 Dependabot，不能据此声称本地安全检查通过。
+
+## 检查环境漂移
+
+环境检查独立于源码扫描，应在任何同步环境的命令之前运行，避免同步掩盖漂移：
+
+```bash
+python -m research_code_quality.environment --lock /path/to/project/uv.lock \
+  --python /path/to/project/.venv/bin/python
+```
+
+安装后的 `research-environment-check` 提供相同参数。调用环境需安装本包，待查解释器只需标准库。
+检查只读取 distribution metadata 和 `direct_url.json`，不导入或安装目标包，不读取凭证。
+输出为 JSON，包含 `schema_version`、`source`、`checked`、`drift`；无漂移退出 0，
+发现漂移退出 1，输入不可读或不支持退出 2。检查额外包、重复元数据、版本和直接来源，
+Git 来源比较仓库 URL 与 commit；editable 路径相对锁文件解析。
+
+uv 锁文件可含多个平台/Python 版本与未选 extra，因此默认仅要求每个已安装包匹配一个锁定候选，
+不把未安装的锁记录报为缺失。检查不解析 marker 或 extra，也不证明依赖闭包、文件内容或安全性。
+需要严格核对单一环境时，可用 `--requirements /path/to/frozen.txt --require-all`：
+文件只接受 `name==version`、空行和注释，不支持范围、marker、hash 或直接来源，发现后会明确报错。
+这种冻结文件只提供版本证据，因此已安装的直接来源会被拒绝。
+不要对含可选或互斥依赖的通用 uv 锁默认加 `--require-all`。
+测试或离线检查可用可重复的 `--site-packages DIRECTORY` 代替 `--python`。
+
+若环境由 `uv sync --no-editable` 安装，检查时也传 `--no-editable`，要求锁中的本地
+editable 记录来自相同目录，且安装元数据标记为非 editable。默认严格比较 editable 状态。
+目标解释器以 `-I` 隔离模式运行，30 秒超时。空冻结文件没有依赖证据，会明确报错。
+源码目录的旧 egg-info 不算已安装证据；检查只纳入具有 METADATA 的安装记录。

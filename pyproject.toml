@@ -14,6 +14,7 @@ dependencies = [
 
 [project.scripts]
 research-code-quality = "research_code_quality.scanner:main"
+research-environment-check = "research_code_quality.environment:main"
 
 [project.optional-dependencies]
 dev = [
