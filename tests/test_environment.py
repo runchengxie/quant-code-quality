@@ -85,6 +85,38 @@ class EnvironmentTests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("error", payload)
 
+    def test_invalid_lock_record_structure_returns_json_error(self):
+        for lock in (
+            'package = "invalid"',
+            '[[package]]\nname="demo"\nversion="1"\nsource="invalid"\n',
+            *(
+                '[[package]]\nname="demo"\nversion="1"\n' + f'source={{{key}=123}}\n'
+                for key in ("git", "url", "editable", "directory")
+            ),
+        ):
+            with self.subTest(lock=lock):
+                code, payload = self.run_check(lock, [("demo", "1", None)])
+                self.assertEqual(code, 2)
+                self.assertEqual(payload["schema_version"], 1)
+                self.assertIn("error", payload)
+
+    def test_invalid_direct_url_structure_returns_json_error(self):
+        lock = (
+            '[[package]]\nname="demo"\nversion="1"\n'
+            'source={git="https://example.com/repo.git?rev=abc#abc"}\n'
+        )
+        for direct in (
+            "invalid",
+            {"vcs_info": "invalid"},
+            {"vcs_info": None},
+            {"url": 123, "vcs_info": {"commit_id": "abc"}},
+        ):
+            with self.subTest(direct=direct):
+                code, payload = self.run_check(lock, [("demo", "1", direct)])
+                self.assertEqual(code, 2)
+                self.assertEqual(payload["schema_version"], 1)
+                self.assertIn("error", payload)
+
     def test_duplicate_metadata_is_drift(self):
         code, payload = self.run_check(
             '[[package]]\nname="demo"\nversion="1"\n', [("demo", "1", None), ("demo", "1", None)]

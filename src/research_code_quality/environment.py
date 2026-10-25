@@ -42,6 +42,11 @@ def read_expected(path: Path, requirements: bool = False) -> dict[str, list[dict
         name = normalize(package["name"])
         version = package["version"]
         source = package.get("source", {})
+        if not isinstance(source, dict):
+            raise ValueError("package source must be an object")
+        for key in ("git", "url", "editable", "directory"):
+            if key in source and not isinstance(source[key], str):
+                raise ValueError(f"package source {key} must be a string")
         expected.setdefault(name, []).append({"version": version, "source": source})
     return expected
 
@@ -76,6 +81,14 @@ def installed(paths: list[str] | None = None) -> list[dict]:
 def source_matches(
     source: dict, direct: dict | None, root: Path, no_editable: bool = False
 ) -> bool:
+    if direct is not None:
+        if not isinstance(direct, dict):
+            raise ValueError("direct_url metadata must be an object")
+        if "url" in direct and not isinstance(direct["url"], str):
+            raise ValueError("direct_url url must be a string")
+        for key in ("vcs_info", "dir_info", "archive_info"):
+            if key in direct and not isinstance(direct[key], dict):
+                raise ValueError(f"direct_url {key} must be an object")
     if "git" in source:
         url, separator, commit = source["git"].rpartition("#")
         return bool(
