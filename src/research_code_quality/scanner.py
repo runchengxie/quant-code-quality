@@ -143,13 +143,17 @@ def find_repo_root(start: Path) -> Path:
     ``_run_git_ls_files`` / ``_find_repo_root`` helpers with one shared rule.
     """
     start = start.resolve()
-    result = subprocess.run(
-        ["git", "-C", str(start), "rev-parse", "--show-toplevel"],
-        capture_output=True,
-        check=False,
-    )
-    if result.returncode == 0 and result.stdout.strip():
-        return Path(result.stdout.decode("utf-8").strip())
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(start), "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        pass  # Git is optional; use the filesystem fallback below.
+    else:
+        if result.returncode == 0 and result.stdout.strip():
+            return Path(result.stdout.decode("utf-8").strip())
     candidate = start
     for _ in range(6):
         if (candidate / "pyproject.toml").exists():
@@ -163,20 +167,23 @@ def find_repo_root(start: Path) -> Path:
 def _git_tracked_python(repo_root: Path) -> set[str] | None:
     if not (repo_root / ".git").exists():
         return None
-    result = subprocess.run(
-        [
-            "git",
-            "-C",
-            str(repo_root),
-            "ls-files",
-            "-z",
-            "--cached",
-            "--others",
-            "--exclude-standard",
-        ],
-        capture_output=True,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "ls-files",
+                "-z",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+            ],
+            capture_output=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        return None
     if result.returncode != 0:
         return None
     return {path for path in result.stdout.decode("utf-8").split("\0") if path}

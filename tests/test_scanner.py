@@ -5,10 +5,12 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from research_code_quality.scanner import (
     DEFAULT_ROOTS,
     discover_python_files,
+    find_repo_root,
     main,
     parse_args,
     ratchet_violations,
@@ -18,6 +20,25 @@ from research_code_quality.scanner import (
 
 
 class ScannerScopeTests(unittest.TestCase):
+    def test_root_discovery_without_git_uses_pyproject(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            (root / "pyproject.toml").write_text("", encoding="utf-8")
+            nested = root / "src" / "example"
+            nested.mkdir(parents=True)
+            with patch.dict("os.environ", {"PATH": ""}):
+                self.assertEqual(find_repo_root(nested), root)
+
+    def test_file_discovery_without_git_uses_filesystem(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            source = root / "src" / "example.py"
+            source.parent.mkdir()
+            source.write_text("pass\n", encoding="utf-8")
+            with patch.dict("os.environ", {"PATH": ""}):
+                self.assertEqual(discover_python_files(root), [source])
+
     def test_nested_git_scopes_include_source_and_preserve_directory_boundaries(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)
