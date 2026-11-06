@@ -74,6 +74,8 @@ scanner 默认扫描 `src`、`scripts`、`tests`，以兼容使用本仓库算�
 uv run --locked --extra dev research-code-quality --root . --scope src --scope tests --json
 ```
 
+未安装 Git 时，根目录发现会回退为查找 `pyproject.toml`，文件发现则使用文件系统。与 `--no-git` 一样，这种回退会纳入被忽略的文件；对比预算前应核对扫描范围。
+
 `--scope` 可重复，默认范围是 `src`、`scripts`、`tests`。`--no-git` 改用文件系统扫描，不应用 Git ignore 规则。`--limit` 默认 `10`，只限制最大文件和函数列表的长度，不改变汇总指标。语法无效的 Python 文件仍计入文件和行数，但不生成函数指标；扫描器不能替代 lint 或类型检查。
 
 `--ratchet --baseline PATH` 只拒绝已记录指标的增长，未记录的指标不会被检查。指标超限返回 `1`，缺少或无法读取 baseline 返回 `2`，成功返回 `0`。`--write-baseline PATH` 写入 `schema_version: 1` 的 JSON，由调用者审核并保存在合适的位置，不会自动批准新预算。

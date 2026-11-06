@@ -35,6 +35,8 @@ The workspace dependency configurations identify `quant-market-data-platform`, `
 
 ## CLI boundaries
 
+If Git is not installed, root discovery falls back to searching for `pyproject.toml`, and file discovery uses the filesystem. As with `--no-git`, this fallback includes ignored files; review scan scope before comparing budgets.
+
 Pass `--root .` when running an installed scanner in a consumer. Automatic root discovery starts from the scanner module location and may select the package checkout instead of the caller's repository.
 
 ```bash
