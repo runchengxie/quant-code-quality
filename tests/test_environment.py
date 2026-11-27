@@ -141,6 +141,32 @@ class EnvironmentTests(unittest.TestCase):
         )
         self.assertEqual(code, 0)
 
+    def test_git_source_checks_package_subdirectory(self):
+        for locked, actual, expected in (
+            ("packages%2Fcore", "packages/core", 0),
+            ("packages%2Fcore", "packages/sdk", 1),
+            ("packages%2Fcore", None, 1),
+            (None, "packages/core", 1),
+        ):
+            with self.subTest(locked=locked, actual=actual):
+                query = f"subdirectory={locked}&rev=abc" if locked else "rev=abc"
+                direct = {
+                    "url": "https://example.com/repo.git",
+                    "vcs_info": {"commit_id": "abc", "vcs": "git"},
+                }
+                if actual is not None:
+                    direct["subdirectory"] = actual
+                code, payload = self.run_check(
+                    '[[package]]\nname="demo"\nversion="1"\n'
+                    f'source={{git="https://example.com/repo.git?{query}#abc"}}\n',
+                    [("demo", "1", direct)],
+                )
+                self.assertEqual(code, expected)
+                self.assertEqual(
+                    payload["drift"],
+                    [] if expected == 0 else [{"name": "demo", "kind": "source_mismatch"}],
+                )
+
     def test_registry_source_rejects_local_replacement(self):
         code, payload = self.run_check(
             '[[package]]\nname="demo"\nversion="1"\n', [("demo", "1", {"url": "file:///tmp/demo"})]

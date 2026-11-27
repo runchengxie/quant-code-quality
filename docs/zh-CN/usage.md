@@ -101,7 +101,7 @@ python -m research_code_quality.environment --lock /path/to/project/uv.lock \
 检查只读取 distribution metadata 和 `direct_url.json`，不导入或安装目标包，不读取凭证。
 输出为 JSON，包含 `schema_version`、`source`、`checked`、`drift`；无漂移退出 0，
 发现漂移退出 1，输入不可读或不支持退出 2。检查额外包、重复元数据、版本和直接来源，
-Git 来源比较仓库 URL 与 commit；editable 路径相对锁文件解析。
+Git 来源比较仓库 URL、commit 与包所在的子目录；editable 路径相对锁文件解析。
 
 uv 锁文件可含多个平台/Python 版本与未选 extra，因此默认仅要求每个已安装包匹配一个锁定候选，
 不把未安装的锁记录报为缺失。检查不解析 marker 或 extra，也不证明依赖闭包、文件内容或安全性。
