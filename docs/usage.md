@@ -79,8 +79,8 @@ Python's standard library. No target packages are imported or installed. Output
 is JSON (`schema_version`, `source`, `checked`, `drift`); exit status is `0` when
 clean, `1` for drift, and `2` for unreadable or unsupported input. Findings include
 unexpected packages, duplicate distribution metadata, versions absent from the
-lock, and mismatching direct URLs or Git commits. Editable project paths resolve
-relative to the lockfile. Registry packages with a local/VCS replacement also fail.
+lock, and mismatching direct URLs, Git commits or package subdirectories. Editable
+project paths resolve relative to the lockfile. Registry packages with a local/VCS replacement also fail.
 
 A uv lock may contain several Python/platform resolutions and unselected extras.
 By default every installed distribution must match one locked candidate; missing

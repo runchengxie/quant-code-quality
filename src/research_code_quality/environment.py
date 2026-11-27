@@ -9,7 +9,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import parse_qs, unquote, urlsplit
 
 try:
     import tomllib
@@ -91,11 +91,14 @@ def source_matches(
                 raise ValueError(f"direct_url {key} must be an object")
     if "git" in source:
         url, separator, commit = source["git"].rpartition("#")
+        subdirectory = parse_qs(urlsplit(url).query).get("subdirectory", [None])
         return bool(
-            separator
+            len(subdirectory) == 1
+            and separator
             and direct
             and direct.get("vcs_info", {}).get("commit_id") == commit
             and direct.get("url", "").removeprefix("git+") == url.split("?", 1)[0]
+            and direct.get("subdirectory") == subdirectory[0]
         )
     if "url" in source:
         return bool(direct and direct.get("url") == source["url"])
